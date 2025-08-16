@@ -21,58 +21,58 @@ const ResultsPage = () => {
   const loadResults = async () => {
     try {
       // This would be a real API call
-    //   const data = await apiService.getResults()
+      const data = await apiService.getResults()
       
       // Mock data for demonstration
-      const mockResults = [
-        {
-          id: 1,
-          student: { username: 'john_doe', first_name: 'John', last_name: 'Doe', student_id: 'STU001' },
-          exam: { title: 'Mathematics Quiz', id: 1 },
-          score: 85.5,
-          time_taken: 45,
-          cheated: false,
-          violations_count: 0,
-          submitted_at: '2024-08-16T10:30:00Z',
-          answers: { '1': 'A', '2': 'B', '3': 'C' },
-          violations_log: []
-        },
-        {
-          id: 2,
-          student: { username: 'jane_smith', first_name: 'Jane', last_name: 'Smith', student_id: 'STU002' },
-          exam: { title: 'Science Test', id: 2 },
-          score: 92.0,
-          time_taken: 38,
-          cheated: false,
-          violations_count: 2,
-          submitted_at: '2024-08-16T09:15:00Z',
-          answers: { '1': 'B', '2': 'A', '3': 'D' },
-          violations_log: [
-            { type: 'Tab switched', timestamp: '2024-08-16T09:10:00Z' },
-            { type: 'Face not detected', timestamp: '2024-08-16T09:12:00Z' }
-          ]
-        },
-        {
-          id: 3,
-          student: { username: 'bob_wilson', first_name: 'Bob', last_name: 'Wilson', student_id: 'STU003' },
-          exam: { title: 'History Exam', id: 3 },
-          score: 67.5,
-          time_taken: 60,
-          cheated: true,
-          violations_count: 5,
-          submitted_at: '2024-08-16T11:45:00Z',
-          answers: { '1': 'C', '2': 'D', '3': 'A' },
-          violations_log: [
-            { type: 'Right-click attempted', timestamp: '2024-08-16T11:20:00Z' },
-            { type: 'Tab switched', timestamp: '2024-08-16T11:25:00Z' },
-            { type: 'Face not detected', timestamp: '2024-08-16T11:30:00Z' },
-            { type: 'Developer tools attempted', timestamp: '2024-08-16T11:35:00Z' },
-            { type: 'Tab switched', timestamp: '2024-08-16T11:40:00Z' }
-          ]
-        }
-      ]
+      // const mockResults = [
+      //   {
+      //     id: 1,
+      //     student: { username: 'john_doe', first_name: 'John', last_name: 'Doe', student_id: 'STU001' },
+      //     exam: { title: 'Mathematics Quiz', id: 1 },
+      //     score: 85.5,
+      //     time_taken: 45,
+      //     cheated: false,
+      //     violations_count: 0,
+      //     submitted_at: '2024-08-16T10:30:00Z',
+      //     answers: { '1': 'A', '2': 'B', '3': 'C' },
+      //     violations_log: []
+      //   },
+      //   {
+      //     id: 2,
+      //     student: { username: 'jane_smith', first_name: 'Jane', last_name: 'Smith', student_id: 'STU002' },
+      //     exam: { title: 'Science Test', id: 2 },
+      //     score: 92.0,
+      //     time_taken: 38,
+      //     cheated: false,
+      //     violations_count: 2,
+      //     submitted_at: '2024-08-16T09:15:00Z',
+      //     answers: { '1': 'B', '2': 'A', '3': 'D' },
+      //     violations_log: [
+      //       { type: 'Tab switched', timestamp: '2024-08-16T09:10:00Z' },
+      //       { type: 'Face not detected', timestamp: '2024-08-16T09:12:00Z' }
+      //     ]
+      //   },
+      //   {
+      //     id: 3,
+      //     student: { username: 'bob_wilson', first_name: 'Bob', last_name: 'Wilson', student_id: 'STU003' },
+      //     exam: { title: 'History Exam', id: 3 },
+      //     score: 67.5,
+      //     time_taken: 60,
+      //     cheated: true,
+      //     violations_count: 5,
+      //     submitted_at: '2024-08-16T11:45:00Z',
+      //     answers: { '1': 'C', '2': 'D', '3': 'A' },
+      //     violations_log: [
+      //       { type: 'Right-click attempted', timestamp: '2024-08-16T11:20:00Z' },
+      //       { type: 'Tab switched', timestamp: '2024-08-16T11:25:00Z' },
+      //       { type: 'Face not detected', timestamp: '2024-08-16T11:30:00Z' },
+      //       { type: 'Developer tools attempted', timestamp: '2024-08-16T11:35:00Z' },
+      //       { type: 'Tab switched', timestamp: '2024-08-16T11:40:00Z' }
+      //     ]
+      //   }
+      // ]
       
-      setResults(mockResults)
+      // setResults(mockResults)
     } catch (error) {
       console.error('Failed to load results:', error)
     } finally {

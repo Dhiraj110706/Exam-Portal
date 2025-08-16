@@ -2,6 +2,8 @@ import axios from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api'
 
+console.log('API Base URL:', API_BASE_URL)
+
 // Create axios instance with default config
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -17,8 +19,10 @@ let csrfToken = null
 const getCSRFToken = async () => {
   if (!csrfToken) {
     try {
+      console.log('Fetching CSRF token...')
       const response = await apiClient.get('/csrf-token/')
       csrfToken = response.data.csrf_token
+      console.log('CSRF token obtained')
     } catch (error) {
       console.error('Failed to get CSRF token:', error)
     }
@@ -46,6 +50,8 @@ const getCSRFTokenFromCookie = () => {
 // Request interceptor to add CSRF token
 apiClient.interceptors.request.use(
   async (config) => {
+    console.log(`Making ${config.method.toUpperCase()} request to: ${config.url}`)
+    
     // Add CSRF token for POST, PUT, PATCH, DELETE requests
     if (['post', 'put', 'patch', 'delete'].includes(config.method.toLowerCase())) {
       let token = csrfToken || getCSRFTokenFromCookie()
@@ -62,6 +68,7 @@ apiClient.interceptors.request.use(
     return config
   },
   (error) => {
+    console.error('Request error:', error)
     return Promise.reject(error)
   }
 )
@@ -69,25 +76,36 @@ apiClient.interceptors.request.use(
 // Response interceptor
 apiClient.interceptors.response.use(
   (response) => {
+    console.log(`Response from ${response.config.url}:`, response.status)
+    
     // Update CSRF token if provided in response
     if (response.data.csrf_token) {
       csrfToken = response.data.csrf_token
     }
     return response
   },
-  (error) => {
+  async (error) => {
+    console.error('Response error:', error.response?.status, error.response?.data)
+    
     if (error.response?.status === 401) {
-      // Handle unauthorized access
-      csrfToken = null // Reset CSRF token
-      window.location.href = '/login'
-    } else if (error.response?.status === 403 && error.response?.data?.detail?.includes('CSRF')) {
-      // CSRF token expired or invalid, try to refresh it
+      console.log('Unauthorized - redirecting to login')
       csrfToken = null
-      return getCSRFToken().then(() => {
+      // Don't redirect here, let the AuthContext handle it
+      return Promise.reject(error)
+    } else if (error.response?.status === 403) {
+      console.log('Forbidden - might be CSRF issue')
+      // Try to refresh CSRF token for 403 errors
+      csrfToken = null
+      try {
+        await getCSRFToken()
         // Retry the original request
         return apiClient.request(error.config)
-      })
+      } catch (csrfError) {
+        console.error('Failed to refresh CSRF token:', csrfError)
+        return Promise.reject(error)
+      }
     }
+    
     return Promise.reject(error)
   }
 )
@@ -95,26 +113,49 @@ apiClient.interceptors.response.use(
 export const apiService = {
   // Initialize CSRF token
   async initCSRF() {
-    await getCSRFToken()
+    try {
+      await getCSRFToken()
+    } catch (error) {
+      console.warn('Failed to initialize CSRF token:', error)
+    }
   },
 
   // Authentication
   async login(username, password) {
-    // Ensure we have a CSRF token before login
-    await this.initCSRF()
-    const response = await apiClient.post('/login/', { username, password })
-    return response.data
+    console.log('API: Attempting login...')
+    try {
+      // Ensure we have a CSRF token before login
+      await this.initCSRF()
+      const response = await apiClient.post('/login/', { username, password })
+      console.log('API: Login response:', response.data)
+      return response.data
+    } catch (error) {
+      console.error('API: Login failed:', error)
+      throw error
+    }
   },
 
   async logout() {
-    const response = await apiClient.post('/logout/')
-    csrfToken = null // Clear CSRF token after logout
-    return response.data
+    console.log('API: Attempting logout...')
+    try {
+      const response = await apiClient.post('/logout/')
+      csrfToken = null // Clear CSRF token after logout
+      console.log('API: Logout successful')
+      return response.data
+    } catch (error) {
+      console.error('API: Logout failed:', error)
+      throw error
+    }
   },
 
   async getCurrentUser() {
-    const response = await apiClient.get('/current-user/')
-    return response.data
+    try {
+      const response = await apiClient.get('/current-user/')
+      return response.data
+    } catch (error) {
+      console.log('API: Current user check failed')
+      throw error
+    }
   },
 
   // Questions
@@ -156,6 +197,15 @@ export const apiService = {
   // User Management
   async createUser(userData) {
     const response = await apiClient.post('/create-user/', userData)
+    return response.data
+  },
+
+  async bulkImportStudents(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await apiClient.post('/bulk-import-students/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
     return response.data
   },
 

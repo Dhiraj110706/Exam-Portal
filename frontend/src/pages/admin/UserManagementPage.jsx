@@ -414,7 +414,7 @@ const UserManagementPage = () => {
             <Upload className="w-4 h-4 mr-2" />
             Bulk Import
           </Button>
-          <Button onClick={() => setShowCreateUser(true)}>
+          <Button onClick={() => setShowCreateUser(true)} variant="success">
             <UserPlus className="w-4 h-4 mr-2" />
             Create User
           </Button>

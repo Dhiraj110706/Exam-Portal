@@ -21,6 +21,10 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    e.stopPropagation()
+    
+    if (loading) return
+    
     setLoading(true)
     setError('')
 
@@ -29,8 +33,10 @@ const LoginPage = () => {
       if (!result.success) {
         setError(result.message)
       }
+      // If successful, the AuthContext will handle the redirect
     } catch (error) {
-      setError('An unexpected error occurred')
+      console.error('Login error:', error)
+      setError('An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -57,52 +63,58 @@ const LoginPage = () => {
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <Input
+              <label className="block text-sm font-medium text-white mb-1">
+                Username
+              </label>
+              <input
                 type="text"
-                label="Username"
                 value={credentials.username}
                 onChange={(e) => handleInputChange('username', e.target.value)}
                 required
-                className="bg-white/20 border-white/30 text-white placeholder-white/60"
+                disabled={loading}
+                className="w-full px-3 py-2 bg-white/20 border border-white/30 rounded-lg shadow-sm text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent disabled:opacity-50"
                 placeholder="Enter your username"
               />
             </div>
 
             <div className="relative">
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                label="Password"
-                value={credentials.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                required
-                className="bg-white/20 border-white/30 text-white placeholder-white/60 pr-12"
-                placeholder="Enter your password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-8 text-white/60 hover:text-white"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
+              <label className="block text-sm font-medium text-white mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={credentials.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  required
+                  disabled={loading}
+                  className="w-full px-3 py-2 bg-white/20 border border-white/30 rounded-lg shadow-sm text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent pr-12 disabled:opacity-50"
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/60 hover:text-white disabled:opacity-50"
+                  disabled={loading}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
 
             {error && (
-              <Alert
-                type="error"
-                message={error}
-                className="bg-red-500/20 border-red-500/30 text-white"
-              />
+              <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3">
+                <p className="text-white text-sm">{error}</p>
+              </div>
             )}
 
-            <Button
+            <button
               type="submit"
-              loading={loading}
-              className="w-full bg-black text-purple-700 hover:bg-white/90 font-semibold py-3"
-              size="large"
+              disabled={loading || !credentials.username || !credentials.password}
+              className="w-full bg-white text-purple-700 hover:bg-white/90 font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Signing In...' : 'Sign In'}
-            </Button>
+            </button>
           </form>
 
           {/* Demo Credentials */}
@@ -111,11 +123,11 @@ const LoginPage = () => {
             <div className="space-y-2 text-sm text-white/80">
               <div className="flex justify-between">
                 <span>Admin:</span>
-                <span className="font-mono">admin / password</span>
+                <span className="font-mono">admin / admin</span>
               </div>
               <div className="flex justify-between">
                 <span>Student:</span>
-                <span className="font-mono">student / password</span>
+                <span className="font-mono">student / student</span>
               </div>
             </div>
             <p className="text-xs text-white/60 mt-2">
