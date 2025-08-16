@@ -1,0 +1,32 @@
+export const VIOLATION_TYPES = {
+  TAB_SWITCH: 'TAB_SWITCH',
+  FULLSCREEN_EXIT: 'FULLSCREEN_EXIT',
+  COPY_PASTE: 'COPY_PASTE',
+  FACE_NOT_DETECTED: 'FACE_NOT_DETECTED',
+  LOOKING_AWAY: 'LOOKING_AWAY',
+  RIGHT_CLICK: 'RIGHT_CLICK',
+  KEYBOARD_SHORTCUT: 'KEYBOARD_SHORTCUT'
+}
+
+export const VIOLATION_MESSAGES = {
+  [VIOLATION_TYPES.TAB_SWITCH]: 'Tab switched or window minimized',
+  [VIOLATION_TYPES.FULLSCREEN_EXIT]: 'Exited fullscreen mode',
+  [VIOLATION_TYPES.COPY_PASTE]: 'Copy/paste attempt detected',
+  [VIOLATION_TYPES.FACE_NOT_DETECTED]: 'Face not detected by camera',
+  [VIOLATION_TYPES.LOOKING_AWAY]: 'Looking away from screen detected',
+  [VIOLATION_TYPES.RIGHT_CLICK]: 'Right-click disabled during exam',
+  [VIOLATION_TYPES.KEYBOARD_SHORTCUT]: 'Keyboard shortcut blocked'
+}
+
+export const EXAM_STATUS = {
+  NOT_STARTED: 'NOT_STARTED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  COMPLETED: 'COMPLETED',
+  SUBMITTED: 'SUBMITTED',
+  TERMINATED: 'TERMINATED'
+}
+
+export const USER_ROLES = {
+  ADMIN: 'ADMIN',
+  STUDENT: 'STUDENT'
+}
