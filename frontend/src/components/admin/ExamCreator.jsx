@@ -127,6 +127,7 @@ const ExamCreator = ({ selectedQuestions, onCreateExam, loading, onCancel }) => 
           </Button>
           <Button
             type="submit"
+            variant="success"
             loading={loading}
           >
             Create Exam

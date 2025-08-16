@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path('csrf-token/', views.get_csrf_token, name='csrf_token'),
     path('login/', views.login_view, name='login'),
     path('logout/', views.logout_view, name='logout'),
     path('current-user/', views.current_user, name='current_user'),
@@ -12,7 +13,6 @@ urlpatterns = [
     path('exams/<int:exam_id>/', views.get_exam_details, name='get_exam_details'),
     path('exams/<int:exam_id>/submit/', views.submit_exam, name='submit_exam'),
     path('create-user/', views.create_user, name='create_user'),
+    path('bulk-import-students/', views.bulk_import_students, name='bulk_import_students'),
     path('students/', views.get_students, name='get_students'),
 ]
-
-# exam_project/urls.py

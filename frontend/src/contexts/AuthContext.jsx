@@ -16,8 +16,24 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    checkAuth()
+    initializeAuth()
   }, [])
+
+  const initializeAuth = async () => {
+    try {
+      // Initialize CSRF token first
+      await apiService.initCSRF()
+      
+      // Then check authentication
+      const userData = await apiService.getCurrentUser()
+      setUser(userData)
+    } catch (error) {
+      console.log('Not authenticated')
+      setUser(null)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const checkAuth = async () => {
     try {
@@ -26,8 +42,6 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.log('Not authenticated')
       setUser(null)
-    } finally {
-      setLoading(false)
     }
   }
 

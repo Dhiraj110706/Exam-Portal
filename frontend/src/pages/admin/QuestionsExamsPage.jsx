@@ -18,6 +18,7 @@ const QuestionsExamsPage = () => {
   const [selectedQuestions, setSelectedQuestions] = useState([])
   const [showCreateExam, setShowCreateExam] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
   const { questions, loading: questionsLoading, uploadCSV } = useQuestions()
   const { createExam, loading: examLoading } = useExam()
@@ -28,8 +29,10 @@ const QuestionsExamsPage = () => {
 
   const handleCSVUpload = async (file) => {
     try {
-      await uploadCSV(file)
+      const result = await uploadCSV(file)
       setShowUpload(false)
+      setSuccessMessage(result.message)
+      setTimeout(() => setSuccessMessage(''), 5000)
     } catch (error) {
       // Error is handled by the hook
     }
@@ -37,11 +40,22 @@ const QuestionsExamsPage = () => {
 
   const handleCreateExam = async (examData) => {
     try {
-      await createExam(examData, selectedQuestions)
+      const result = await createExam(examData, selectedQuestions)
       setSelectedQuestions([])
       setShowCreateExam(false)
+      setSuccessMessage(result.message)
+      setTimeout(() => setSuccessMessage(''), 5000)
     } catch (error) {
       // Error is handled by the hook
+    }
+  }
+
+  const handleSelectQuestion = (question) => {
+    const isSelected = selectedQuestions.find(q => q.id === question.id)
+    if (isSelected) {
+      setSelectedQuestions(selectedQuestions.filter(q => q.id !== question.id))
+    } else {
+      setSelectedQuestions([...selectedQuestions, question])
     }
   }
 
@@ -76,6 +90,11 @@ const QuestionsExamsPage = () => {
           )}
         </div>
       </div>
+
+      {/* Success Message */}
+      {successMessage && (
+        <Alert type="success" message={successMessage} />
+      )}
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
@@ -123,11 +142,7 @@ const QuestionsExamsPage = () => {
               <QuestionsList
                 questions={filteredQuestions}
                 selectedQuestions={selectedQuestions}
-                onSelectQuestion={(question) => {
-                  if (!selectedQuestions.find(q => q.id === question.id)) {
-                    setSelectedQuestions([...selectedQuestions, question])
-                  }
-                }}
+                onSelectQuestion={handleSelectQuestion}
                 loading={questionsLoading}
               />
             </Card>
@@ -137,7 +152,9 @@ const QuestionsExamsPage = () => {
           <div>
             <Card>
               <div className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Selected Questions</h3>
+                <h3 className="text-lg font-semibold mb-4">
+                  Selected Questions ({selectedQuestions.length})
+                </h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                   {selectedQuestions.map((question, index) => (
                     <div key={question.id} className="bg-gray-50 p-3 rounded border">
@@ -145,7 +162,7 @@ const QuestionsExamsPage = () => {
                         {index + 1}. {question.question_text.substring(0, 50)}...
                       </div>
                       <button
-                        onClick={() => setSelectedQuestions(selectedQuestions.filter(q => q.id !== question.id))}
+                        onClick={() => handleSelectQuestion(question)}
                         className="text-red-600 text-xs hover:text-red-800"
                       >
                         Remove
@@ -158,10 +175,54 @@ const QuestionsExamsPage = () => {
                     </p>
                   )}
                 </div>
+                {selectedQuestions.length > 0 && (
+                  <div className="mt-4 pt-4 border-t">
+                    <Button
+                      onClick={() => setShowCreateExam(true)}
+                      className="w-full"
+                    >
+                      Create Exam with {selectedQuestions.length} Questions
+                    </Button>
+                  </div>
+                )}
               </div>
             </Card>
           </div>
         </div>
       )}
 
-      {
+      {activeTab === 'exams' && (
+        <div>
+          <ExamsList />
+        </div>
+      )}
+
+      {/* CSV Upload Modal */}
+      <Modal
+        isOpen={showUpload}
+        onClose={() => setShowUpload(false)}
+        title="Upload Questions CSV"
+        size="medium"
+      >
+        <CSVUpload onUpload={handleCSVUpload} />
+      </Modal>
+
+      {/* Create Exam Modal */}
+      <Modal
+        isOpen={showCreateExam}
+        onClose={() => setShowCreateExam(false)}
+        title="Create New Exam"
+        size="large"
+      >
+        <ExamCreator
+          selectedQuestions={selectedQuestions}
+          onCreateExam={handleCreateExam}
+          loading={examLoading}
+          onCancel={() => setShowCreateExam(false)}
+        />
+      </Modal>
+    </div>
+  )
+}
+
+export default QuestionsExamsPage

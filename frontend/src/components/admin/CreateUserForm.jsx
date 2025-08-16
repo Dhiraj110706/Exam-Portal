@@ -171,6 +171,7 @@ const CreateUserForm = ({ onCreateUser, onCancel }) => {
           </Button>
           <Button
             type="submit"
+            variant="success"
             loading={loading}
           >
             Create User

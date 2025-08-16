@@ -8,9 +8,10 @@ from rest_framework.views import APIView
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from django.http import JsonResponse
 from django.utils import timezone
+from django.middleware.csrf import get_token
 import csv
 import io
 from .models import CustomUser, Question, Exam, StudentResponse
@@ -34,19 +35,23 @@ def login_view(request):
                     'username': user.username,
                     'role': user.role,
                     'student_id': user.student_id,
-                }
+                },
+                'csrf_token': get_token(request)
             })
         else:
             return Response({'success': False, 'message': 'Invalid credentials'})
     
     return Response({'success': False, 'message': 'Username and password required'})
 
+@csrf_exempt
 @api_view(['POST'])
+@permission_classes([permissions.AllowAny])
 def logout_view(request):
     logout(request)
     return Response({'success': True})
 
 @api_view(['GET'])
+@permission_classes([permissions.AllowAny])
 def current_user(request):
     if request.user.is_authenticated:
         return Response({
@@ -207,7 +212,7 @@ def submit_exam(request, exam_id):
                 'success': True,
                 'score': response.score,
                 'cheated': response.cheated,
-                'violations_count': response.violations_count
+                'violations_count': len(response.violations_log)
             })
         
         return Response({'error': serializer.errors}, status=400)
@@ -245,3 +250,94 @@ def get_students(request):
     serializer = UserSerializer(students, many=True)
     return Response(serializer.data)
 
+# Add CSRF token endpoint
+@ensure_csrf_cookie
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def get_csrf_token(request):
+    return Response({
+        'csrf_token': get_token(request)
+    })
+
+# Add this to your backend/exam_system/views.py file
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def bulk_import_students(request):
+    if request.user.role != 'ADMIN':
+        return Response({'error': 'Admin access required'}, status=403)
+    
+    if 'file' not in request.FILES:
+        return Response({'error': 'No file provided'}, status=400)
+    
+    csv_file = request.FILES['file']
+    if not csv_file.name.endswith('.csv'):
+        return Response({'error': 'File must be CSV format'}, status=400)
+    
+    try:
+        decoded_file = csv_file.read().decode('utf-8')
+        reader = csv.DictReader(io.StringIO(decoded_file))
+        
+        students_created = []
+        errors = []
+        
+        for row_num, row in enumerate(reader, start=2):  # Start at 2 because of header row
+            try:
+                # Validate required fields
+                required_fields = ['first_name', 'last_name', 'username', 'password']
+                missing_fields = [field for field in required_fields if not row.get(field, '').strip()]
+                
+                if missing_fields:
+                    errors.append(f"Row {row_num}: Missing required fields: {', '.join(missing_fields)}")
+                    continue
+                
+                # Check if username already exists
+                if CustomUser.objects.filter(username=row['username'].strip()).exists():
+                    errors.append(f"Row {row_num}: Username '{row['username'].strip()}' already exists")
+                    continue
+                
+                # Create student
+                student_data = {
+                    'username': row['username'].strip(),
+                    'first_name': row['first_name'].strip(),
+                    'last_name': row['last_name'].strip(),
+                    'email': row.get('email', '').strip(),
+                    'role': 'STUDENT',
+                    'created_by': request.user
+                }
+                
+                # Create user
+                student = CustomUser.objects.create_user(
+                    username=student_data['username'],
+                    password=row['password'].strip(),
+                    first_name=student_data['first_name'],
+                    last_name=student_data['last_name'],
+                    email=student_data['email'] if student_data['email'] else None,
+                    role=student_data['role'],
+                    created_by=student_data['created_by']
+                )
+                
+                students_created.append({
+                    'username': student.username,
+                    'student_id': student.student_id,
+                    'name': f"{student.first_name} {student.last_name}"
+                })
+                
+            except Exception as e:
+                errors.append(f"Row {row_num}: Error creating student - {str(e)}")
+        
+        response_data = {
+            'success': True,
+            'imported_count': len(students_created),
+            'error_count': len(errors),
+            'message': f'Successfully imported {len(students_created)} students'
+        }
+        
+        if errors:
+            response_data['errors'] = errors
+            response_data['message'] += f' ({len(errors)} errors occurred)'
+        
+        return Response(response_data)
+        
+    except Exception as e:
+        return Response({'error': f'Failed to process CSV: {str(e)}'}, status=400)
