@@ -22,13 +22,20 @@ class QuestionSerializer(serializers.ModelSerializer):
 
 class ExamSerializer(serializers.ModelSerializer):
     questions_count = serializers.SerializerMethodField()
+    created_by = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
     
     class Meta:
         model = Exam
-        fields = '__all__'
+        fields = ['id', 'title', 'description', 'duration_minutes', 'max_violations', 
+                 'is_active', 'created_at', 'created_by', 'questions_count']
     
     def get_questions_count(self, obj):
         return obj.questions.count()
+    
+    def create(self, validated_data):
+        # Create the exam
+        exam = Exam.objects.create(**validated_data)
+        return exam
 
 class StudentResponseSerializer(serializers.ModelSerializer):
     class Meta:

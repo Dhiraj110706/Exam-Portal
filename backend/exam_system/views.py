@@ -111,33 +111,79 @@ def get_questions(request):
     serializer = QuestionSerializer(questions, many=True)
     return Response(serializer.data)
 
+# @api_view(['POST'])
+# @permission_classes([permissions.IsAuthenticated])
+# def create_exam(request):
+#     if request.user.role != 'ADMIN':
+#         return Response({'error': 'Admin access required'}, status=403)
+    
+#     data = request.data.copy()
+#     data['created_by'] = request.user.id
+    
+#     serializer = ExamSerializer(data=data)
+#     if serializer.is_valid():
+#         exam = serializer.save()
+        
+#         # Add questions to exam
+#         question_ids = request.data.get('question_ids', [])
+#         if question_ids:
+#             questions = Question.objects.filter(id__in=question_ids)
+#             exam.questions.set(questions)
+        
+#         return Response({
+#             'success': True,
+#             'exam_id': exam.id,
+#             'message': 'Exam created successfully'
+#         })
+    
+#     return Response({'error': serializer.errors}, status=400)
+
+# backend/exam_system/views.py - Alternative approach with serializer
+
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def create_exam(request):
     if request.user.role != 'ADMIN':
         return Response({'error': 'Admin access required'}, status=403)
     
-    data = request.data.copy()
-    data['created_by'] = request.user.id
-    
-    serializer = ExamSerializer(data=data)
-    if serializer.is_valid():
-        exam = serializer.save()
+    try:
+        # Extract data from request
+        data = request.data.copy()
+        question_ids = data.pop('question_ids', [])
         
-        # Add questions to exam
-        question_ids = request.data.get('question_ids', [])
-        if question_ids:
-            questions = Question.objects.filter(id__in=question_ids)
+        # Add created_by to data
+        data['created_by'] = request.user.id
+        
+        # Validate question_ids
+        if not question_ids or len(question_ids) == 0:
+            return Response({'error': 'At least one question must be selected'}, status=400)
+        
+        # Validate that all question IDs exist and belong to the current user
+        questions = Question.objects.filter(id__in=question_ids, created_by=request.user)
+        if questions.count() != len(question_ids):
+            return Response({'error': 'Some selected questions do not exist or you do not have permission to use them'}, status=400)
+        
+        # Create exam using serializer
+        serializer = ExamSerializer(data=data)
+        if serializer.is_valid():
+            exam = serializer.save()
+            
+            # Add questions to exam
             exam.questions.set(questions)
-        
-        return Response({
-            'success': True,
-            'exam_id': exam.id,
-            'message': 'Exam created successfully'
-        })
+            
+            return Response({
+                'success': True,
+                'exam_id': exam.id,
+                'message': f'Exam "{exam.title}" created successfully with {questions.count()} questions'
+            }, status=201)
+        else:
+            return Response({'error': serializer.errors}, status=400)
     
-    return Response({'error': serializer.errors}, status=400)
-
+    except Exception as e:
+        print(f"Error creating exam: {str(e)}")  # For debugging
+        import traceback
+        traceback.print_exc()  # Print full traceback for debugging
+        return Response({'error': f'Failed to create exam: {str(e)}'}, status=500)
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def get_exams(request):
@@ -341,3 +387,284 @@ def bulk_import_students(request):
         
     except Exception as e:
         return Response({'error': f'Failed to process CSV: {str(e)}'}, status=400)
+    
+# Add these views to your backend/exam_system/views.py
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_results(request):
+    """Get all exam results (admin only)"""
+    if request.user.role != 'ADMIN':
+        return Response({'error': 'Admin access required'}, status=403)
+    
+    try:
+        # Get all student responses for exams created by this admin
+        results = StudentResponse.objects.filter(
+            exam__created_by=request.user
+        ).select_related('student', 'exam').order_by('-submitted_at')
+        
+        results_data = []
+        for result in results:
+            violations_count = len(result.violations_log) if result.violations_log else 0
+            
+            results_data.append({
+                'id': result.id,
+                'student': {
+                    'id': result.student.id,
+                    'username': result.student.username,
+                    'first_name': result.student.first_name,
+                    'last_name': result.student.last_name,
+                    'student_id': result.student.student_id,
+                },
+                'exam': {
+                    'id': result.exam.id,
+                    'title': result.exam.title,
+                    'duration_minutes': result.exam.duration_minutes,
+                    'max_violations': result.exam.max_violations,
+                },
+                'score': result.score,
+                'time_taken': result.time_taken,
+                'cheated': result.cheated,
+                'violations_count': violations_count,
+                'submitted_at': result.submitted_at.isoformat(),
+                'started_at': result.started_at.isoformat(),
+                'answers': result.answers,
+                'violations_log': result.violations_log
+            })
+        
+        return Response(results_data)
+    
+    except Exception as e:
+        print(f"Error getting results: {str(e)}")
+        return Response({'error': 'Failed to load results'}, status=500)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_exam_results(request, exam_id):
+    """Get results for a specific exam"""
+    if request.user.role != 'ADMIN':
+        return Response({'error': 'Admin access required'}, status=403)
+    
+    try:
+        # Verify the exam belongs to this admin
+        exam = Exam.objects.get(id=exam_id, created_by=request.user)
+        
+        # Get all responses for this exam
+        results = StudentResponse.objects.filter(exam=exam).select_related('student')
+        
+        results_data = []
+        for result in results:
+            violations_count = len(result.violations_log) if result.violations_log else 0
+            
+            results_data.append({
+                'id': result.id,
+                'student': {
+                    'id': result.student.id,
+                    'username': result.student.username,
+                    'first_name': result.student.first_name,
+                    'last_name': result.student.last_name,
+                    'student_id': result.student.student_id,
+                },
+                'exam': {
+                    'id': exam.id,
+                    'title': exam.title,
+                },
+                'score': result.score,
+                'time_taken': result.time_taken,
+                'cheated': result.cheated,
+                'violations_count': violations_count,
+                'submitted_at': result.submitted_at.isoformat(),
+                'answers': result.answers,
+                'violations_log': result.violations_log
+            })
+        
+        return Response(results_data)
+    
+    except Exam.DoesNotExist:
+        return Response({'error': 'Exam not found'}, status=404)
+    except Exception as e:
+        print(f"Error getting exam results: {str(e)}")
+        return Response({'error': 'Failed to load exam results'}, status=500)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_student_results(request, student_id):
+    """Get results for a specific student"""
+    if request.user.role != 'ADMIN':
+        return Response({'error': 'Admin access required'}, status=403)
+    
+    try:
+        # Verify the student was created by this admin
+        student = CustomUser.objects.get(id=student_id, created_by=request.user, role='STUDENT')
+        
+        # Get all responses for this student
+        results = StudentResponse.objects.filter(student=student).select_related('exam')
+        
+        results_data = []
+        for result in results:
+            violations_count = len(result.violations_log) if result.violations_log else 0
+            
+            results_data.append({
+                'id': result.id,
+                'student': {
+                    'id': student.id,
+                    'username': student.username,
+                    'first_name': student.first_name,
+                    'last_name': student.last_name,
+                    'student_id': student.student_id,
+                },
+                'exam': {
+                    'id': result.exam.id,
+                    'title': result.exam.title,
+                },
+                'score': result.score,
+                'time_taken': result.time_taken,
+                'cheated': result.cheated,
+                'violations_count': violations_count,
+                'submitted_at': result.submitted_at.isoformat(),
+                'answers': result.answers,
+                'violations_log': result.violations_log
+            })
+        
+        return Response(results_data)
+    
+    except CustomUser.DoesNotExist:
+        return Response({'error': 'Student not found'}, status=404)
+    except Exception as e:
+        print(f"Error getting student results: {str(e)}")
+        return Response({'error': 'Failed to load student results'}, status=500)
+    
+# Add this view to your backend/exam_system/views.py file
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_dashboard_stats(request):
+    """Get comprehensive dashboard statistics for admin"""
+    if request.user.role != 'ADMIN':
+        return Response({'error': 'Admin access required'}, status=403)
+    
+    try:
+        # Get counts for entities created by this admin
+        students_count = CustomUser.objects.filter(
+            role='STUDENT', 
+            created_by=request.user
+        ).count()
+        
+        exams_count = Exam.objects.filter(created_by=request.user).count()
+        
+        active_exams_count = Exam.objects.filter(
+            created_by=request.user, 
+            is_active=True
+        ).count()
+        
+        questions_count = Question.objects.filter(created_by=request.user).count()
+        
+        # Get all student responses for this admin's exams
+        results = StudentResponse.objects.filter(
+            exam__created_by=request.user
+        ).select_related('student', 'exam')
+        
+        total_results = results.count()
+        
+        # Calculate average score
+        if total_results > 0:
+            scores = [result.score for result in results if result.score is not None]
+            average_score = round(sum(scores) / len(scores), 1) if scores else 0
+        else:
+            average_score = 0
+        
+        # Get flagged submissions
+        flagged_submissions = results.filter(cheated=True).count()
+        
+        # Calculate performance trends
+        performance_trends = {
+            'excellent': results.filter(score__gte=90).count(),
+            'good': results.filter(score__gte=70, score__lt=90).count(),
+            'average': results.filter(score__gte=50, score__lt=70).count(),
+            'poor': results.filter(score__lt=50).count()
+        }
+        
+        # Get recent results (last 10)
+        recent_results = results.order_by('-submitted_at')[:10]
+        
+        # Format recent activity data
+        recent_activity = []
+        for result in recent_results:
+            violations_count = len(result.violations_log) if result.violations_log else 0
+            recent_activity.append({
+                'id': result.id,
+                'student': {
+                    'id': result.student.id,
+                    'username': result.student.username,
+                    'first_name': result.student.first_name,
+                    'last_name': result.student.last_name,
+                    'student_id': result.student.student_id,
+                },
+                'exam': {
+                    'id': result.exam.id,
+                    'title': result.exam.title,
+                },
+                'score': result.score,
+                'time_taken': result.time_taken,
+                'cheated': result.cheated,
+                'violations_count': violations_count,
+                'submitted_at': result.submitted_at.isoformat(),
+                'started_at': result.started_at.isoformat(),
+            })
+        
+        # Calculate summary statistics
+        summary = {
+            'completion_rate': round((total_results / students_count * 100), 1) if students_count > 0 else 0,
+            'pass_rate': round((results.filter(score__gte=50).count() / total_results * 100), 1) if total_results > 0 else 0,
+            'cheat_rate': round((flagged_submissions / total_results * 100), 1) if total_results > 0 else 0
+        }
+        
+        # Get exam-wise statistics
+        exam_stats = []
+        admin_exams = Exam.objects.filter(created_by=request.user)
+        for exam in admin_exams:
+            exam_results = results.filter(exam=exam)
+            exam_results_count = exam_results.count()
+            
+            if exam_results_count > 0:
+                exam_average = round(sum(r.score for r in exam_results if r.score) / exam_results_count, 1)
+                exam_cheated = exam_results.filter(cheated=True).count()
+            else:
+                exam_average = 0
+                exam_cheated = 0
+            
+            exam_stats.append({
+                'id': exam.id,
+                'title': exam.title,
+                'total_attempts': exam_results_count,
+                'average_score': exam_average,
+                'cheated_count': exam_cheated,
+                'is_active': exam.is_active,
+                'created_at': exam.created_at.isoformat(),
+                'questions_count': exam.questions.count()
+            })
+        
+        # Sort exam stats by creation date (newest first)
+        exam_stats.sort(key=lambda x: x['created_at'], reverse=True)
+        
+        return Response({
+            'totalStudents': students_count,
+            'totalExams': exams_count,
+            'activeExams': active_exams_count,
+            'totalQuestions': questions_count,
+            'averageScore': average_score,
+            'totalResults': total_results,
+            'flaggedSubmissions': flagged_submissions,
+            'performanceTrends': performance_trends,
+            'recentResults': recent_activity,
+            'summary': summary,
+            'examStats': exam_stats[:5],  # Top 5 recent exams
+            'timestamp': timezone.now().isoformat(),
+        })
+        
+    except Exception as e:
+        print(f"Error getting dashboard stats: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({'error': 'Failed to load dashboard statistics'}, status=500)
+    
