@@ -266,16 +266,32 @@ def submit_exam(request, exam_id):
     except Exam.DoesNotExist:
         return Response({'error': 'Exam not found'}, status=404)
 
+# @api_view(['POST'])
+# @permission_classes([permissions.IsAuthenticated])
+# def create_user(request):
+#     if request.user.role != 'ADMIN':
+#         return Response({'error': 'Admin access required'}, status=403)
+    
+#     data = request.data.copy()
+#     data['created_by'] = request.user
+    
+#     serializer = UserSerializer(data=data)
+#     if serializer.is_valid():
+#         user = serializer.save()
+#         return Response({
+#             'success': True,
+#             'user_id': user.id,
+#             'message': f'{user.role} created successfully'
+#         })
+    
+#     return Response({'error': serializer.errors}, status=400)
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def create_user(request):
     if request.user.role != 'ADMIN':
         return Response({'error': 'Admin access required'}, status=403)
-    
-    data = request.data.copy()
-    data['created_by'] = request.user.id
-    
-    serializer = UserSerializer(data=data)
+
+    serializer = UserSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         user = serializer.save()
         return Response({
@@ -283,8 +299,9 @@ def create_user(request):
             'user_id': user.id,
             'message': f'{user.role} created successfully'
         })
-    
+
     return Response({'error': serializer.errors}, status=400)
+
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
@@ -668,3 +685,160 @@ def get_dashboard_stats(request):
         traceback.print_exc()
         return Response({'error': 'Failed to load dashboard statistics'}, status=500)
     
+# Add these views to your backend/exam_system/views.py file
+
+@api_view(['PUT'])
+@permission_classes([permissions.IsAuthenticated])
+def update_user(request, user_id):
+    """Update a user (admin only)"""
+    if request.user.role != 'ADMIN':
+        return Response({'error': 'Admin access required'}, status=403)
+    
+    try:
+        # Get the user to update - must be created by this admin
+        user = CustomUser.objects.get(id=user_id, created_by=request.user)
+        
+        # Validate input data
+        data = request.data
+        errors = {}
+        
+        # Check required fields
+        if not data.get('username', '').strip():
+            errors['username'] = 'Username is required'
+        if not data.get('first_name', '').strip():
+            errors['first_name'] = 'First name is required'
+        if not data.get('last_name', '').strip():
+            errors['last_name'] = 'Last name is required'
+        
+        # Check if username is already taken by another user
+        username = data.get('username', '').strip()
+        if username and username != user.username:
+            if CustomUser.objects.filter(username=username).exclude(id=user.id).exists():
+                errors['username'] = 'Username already exists'
+        
+        # Validate email if provided
+        email = data.get('email', '').strip()
+        if email:
+            import re
+            email_regex = r'^[^\s@]+@[^\s@]+\.[^\s@]+$'
+            if not re.match(email_regex, email):
+                errors['email'] = 'Invalid email format'
+        
+        # Validate password if provided
+        password = data.get('password', '').strip()
+        if password and len(password) < 6:
+            errors['password'] = 'Password must be at least 6 characters'
+        
+        # Validate role
+        role = data.get('role', 'STUDENT')
+        if role not in ['STUDENT', 'ADMIN']:
+            errors['role'] = 'Invalid role'
+        
+        if errors:
+            return Response({'error': errors}, status=400)
+        
+        # Update user fields
+        user.username = username
+        user.first_name = data.get('first_name', '').strip()
+        user.last_name = data.get('last_name', '').strip()
+        user.email = email if email else None
+        user.role = role
+        
+        # Update password if provided
+        if password:
+            user.set_password(password)
+        
+        user.save()
+        
+        # Return updated user data
+        user_data = {
+            'id': user.id,
+            'username': user.username,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'email': user.email,
+            'role': user.role,
+            'student_id': user.student_id,
+            'date_joined': user.date_joined.isoformat() if user.date_joined else None,
+        }
+        
+        return Response({
+            'success': True,
+            'message': f'User {user.username} updated successfully',
+            'user': user_data
+        })
+        
+    except CustomUser.DoesNotExist:
+        return Response({'error': 'User not found or you do not have permission to edit this user'}, status=404)
+    except Exception as e:
+        print(f"Error updating user: {str(e)}")
+        return Response({'error': f'Failed to update user: {str(e)}'}, status=500)
+
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def delete_user(request, user_id):
+    """Delete a user (admin only)"""
+    if request.user.role != 'ADMIN':
+        return Response({'error': 'Admin access required'}, status=403)
+    
+    try:
+        # Get the user to delete - must be created by this admin
+        user = CustomUser.objects.get(id=user_id, created_by=request.user)
+        
+        # Check if user has any exam responses
+        has_responses = StudentResponse.objects.filter(student=user).exists()
+        
+        if has_responses:
+            # Instead of deleting, we could mark as inactive or return an error
+            return Response({
+                'error': 'Cannot delete user with exam responses. Consider deactivating instead.'
+            }, status=400)
+        
+        # Store user info for response
+        username = user.username
+        full_name = f"{user.first_name} {user.last_name}"
+        
+        # Delete the user
+        user.delete()
+        
+        return Response({
+            'success': True,
+            'message': f'User {full_name} (@{username}) deleted successfully'
+        })
+        
+    except CustomUser.DoesNotExist:
+        return Response({'error': 'User not found or you do not have permission to delete this user'}, status=404)
+    except Exception as e:
+        print(f"Error deleting user: {str(e)}")
+        return Response({'error': f'Failed to delete user: {str(e)}'}, status=500)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_all_users(request):
+    """Get all users created by the admin"""
+    if request.user.role != 'ADMIN':
+        return Response({'error': 'Admin access required'}, status=403)
+    
+    try:
+        # Get all users created by this admin
+        users = CustomUser.objects.filter(created_by=request.user).order_by('-date_joined')
+        
+        users_data = []
+        for user in users:
+            users_data.append({
+                'id': user.id,
+                'username': user.username,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+                'role': user.role,
+                'student_id': user.student_id,
+                'date_joined': user.date_joined.isoformat() if user.date_joined else None,
+                'is_active': user.is_active,
+            })
+        
+        return Response(users_data)
+        
+    except Exception as e:
+        print(f"Error getting users: {str(e)}")
+        return Response({'error': 'Failed to load users'}, status=500)

@@ -250,6 +250,7 @@ import CSVUpload from '@components/admin/CSVUpload'
 import QuestionsList from '@components/admin/QuestionsList'
 import ExamCreator from '@components/admin/ExamCreator'
 import ExamsList from '@components/admin/ExamsList'
+import {apiService} from '@services/apiService'
 
 const QuestionsExamsPage = () => {
   const [activeTab, setActiveTab] = useState('questions')
@@ -260,6 +261,7 @@ const QuestionsExamsPage = () => {
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
 
+  const [examCount, setExamCount] = useState(0)
   const { questions, loading: questionsLoading, uploadCSV, error: questionsError } = useQuestions()
   const { createExam, loading: examLoading, error: examError } = useExam()
 
@@ -324,9 +326,11 @@ const QuestionsExamsPage = () => {
     setSelectedQuestions([])
   }
 
+  // const temp1 = async
+
   const tabs = [
     { id: 'questions', name: 'Questions Bank', count: questions.length },
-    { id: 'exams', name: 'Exams', count: createExam.length }
+    { id: 'exams', name: 'Exams', count: examCount }
   ]
 
   return (
@@ -475,7 +479,7 @@ const QuestionsExamsPage = () => {
 
       {activeTab === 'exams' && (
         <div>
-          <ExamsList />
+          <ExamsList onExamsLoaded={setExamCount}/>
         </div>
       )}
 

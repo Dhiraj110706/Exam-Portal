@@ -1,19 +1,43 @@
 from rest_framework import serializers
 from .models import CustomUser, Question, Exam, StudentResponse
 
+# class UserSerializer(serializers.ModelSerializer):
+#     password = serializers.CharField(write_only=True)
+    
+#     class Meta:
+#         model = CustomUser
+#         fields = ['id', 'username', 'email', 'role', 'student_id', 'password', 'first_name', 'last_name']
+    
+#     def create(self, validated_data):
+#         password = validated_data.pop('password')
+#         user = CustomUser.objects.create_user(**validated_data)
+#         user.set_password(password)
+#         user.save()
+#         return user
+
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-    
+
     class Meta:
         model = CustomUser
         fields = ['id', 'username', 'email', 'role', 'student_id', 'password', 'first_name', 'last_name']
-    
+        extra_kwargs = {
+            'student_id': {'read_only': True},  # auto-generated
+        }
+
     def create(self, validated_data):
+        request = self.context.get("request")
         password = validated_data.pop('password')
+
+        # Always attach created_by = current logged-in user
+        if request and hasattr(request, "user"):
+            validated_data['created_by'] = request.user
+
         user = CustomUser.objects.create_user(**validated_data)
         user.set_password(password)
         user.save()
         return user
+
 
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:

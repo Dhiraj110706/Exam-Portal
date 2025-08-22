@@ -159,6 +159,7 @@ const ExamCard = ({ exam, onStartExam }) => {
 
         {/* Action Button */}
         <Button
+            variant = 'success'
           onClick={onStartExam}
           disabled={!exam.is_active}
           className="w-full"

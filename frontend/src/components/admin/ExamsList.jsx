@@ -5,7 +5,7 @@ import Button from '@components/common/Button'
 import { apiService } from '@services/apiService'
 import { formatDate } from '@utils/helpers'
 
-const ExamsList = () => {
+const ExamsList = ({ onExamsLoaded }) => {
   const [exams, setExams] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -13,10 +13,16 @@ const ExamsList = () => {
     loadExams()
   }, [])
 
+   useEffect(() => {
+    if (onExamsLoaded) {
+      onExamsLoaded(exams.length)
+    }
+  }, [exams, onExamsLoaded])
+
   const loadExams = async () => {
     try {
       const data = await apiService.getExams()
-      setExams(data)
+      setExams(data)    
     } catch (error) {
       console.error('Failed to load exams:', error)
     } finally {
