@@ -42,7 +42,6 @@ const AntiCheatMonitor = ({ onViolation, isActive }) => {
     setupComplete: false
   })
 
-
   useEffect(() => {
     const loadModels = async () => {
       try {
@@ -67,8 +66,8 @@ const AntiCheatMonitor = ({ onViolation, isActive }) => {
   const canTriggerViolation = useCallback(type => {
     const now = Date.now()
     const cooldownPeriods = {
-      tabSwitch: 5000, // 5 seconds
-      fullscreenExit: 3000, // 3 seconds
+      tabSwitch: 1000, // 1 seconds
+      fullscreenExit: 5000, // 5 seconds
       copyPaste: 2000, // 2 seconds
       faceDetection: 10000, // 10 seconds for face detection
       rightClick: 1000 // 1 second
@@ -85,200 +84,201 @@ const AntiCheatMonitor = ({ onViolation, isActive }) => {
     return true
   }, [])
 
-  
-
   const handleViolation = useCallback(
-  (type, message) => {
-    // Don't trigger violations if monitoring is paused or not active
+    (type, message) => {
+      // Don't trigger violations if monitoring is paused or not active
+      if (
+        !isActive ||
+        isMonitoringPaused ||
+        !initialStateRef.current.setupComplete
+      ) {
+        return
+      }
+
+      // Check cooldown to prevent double counting
+      if (!canTriggerViolation(type)) {
+        return
+      }
+
+      console.log(`Violation triggered: ${type} - ${message}`)
+
+      // Only update local state for display
+      setViolations(prev => {
+        const newViolations = { ...prev, [type]: prev[type] + 1 }
+        return newViolations
+      })
+
+      // Call onViolation callback ONCE without local state manipulation
+      if (onViolation) {
+        onViolation({ type, message })
+      }
+    },
+    [isActive, isMonitoringPaused, onViolation, canTriggerViolation]
+  )
+  const detectFaces = useCallback(async () => {
     if (
-      !isActive ||
-      isMonitoringPaused ||
-      !initialStateRef.current.setupComplete
+      !videoRef.current ||
+      !faceapi ||
+      !faceDetectionLoaded ||
+      isMonitoringPaused
     ) {
       return
     }
 
-    // Check cooldown to prevent double counting
-    if (!canTriggerViolation(type)) {
-      return
-    }
+    try {
+      const video = videoRef.current
+      if (video.readyState !== 4) return // Video not ready
 
-    console.log(`Violation triggered: ${type} - ${message}`)
+      // ✅ Detect faces
+      const detections = await faceapi
+        .detectAllFaces(
+          video,
+          new faceapi.SsdMobilenetv1Options({ minConfidence: 0.6 })
+        )
+        .withFaceLandmarks()
+        .withFaceDescriptors()
 
-    // Only update local state for display
-    setViolations(prev => {
-      const newViolations = { ...prev, [type]: prev[type] + 1 }
-      return newViolations
-    })
+      const currentFaceCount = detections.length
+      setLastFaceCount(currentFaceCount)
 
-    // Call onViolation callback ONCE without local state manipulation
-    if (onViolation) {
-      onViolation({ type, message })
-    }
-  },
-  [isActive, isMonitoringPaused, onViolation, canTriggerViolation]
-)
-  const detectFaces = useCallback(async () => {
-  if (
-    !videoRef.current ||
-    !faceapi ||
-    !faceDetectionLoaded ||
-    isMonitoringPaused
-  ) {
-    return
-  }
+      // Create or update canvas overlay
+      let canvas = canvasRef.current
+      if (!canvas) {
+        canvas = faceapi.createCanvasFromMedia(video)
+        canvas.style.position = 'absolute'
+        canvas.style.top = '0'
+        canvas.style.left = '0'
+        canvas.style.width = video.width + 'px'
+        canvas.style.height = video.height + 'px'
+        video.parentNode.appendChild(canvas)
+        canvasRef.current = canvas
+      }
+      const dims = { width: video.videoWidth, height: video.videoHeight }
+      faceapi.matchDimensions(canvas, dims)
+      const resizedDetections = faceapi.resizeResults(detections, dims)
 
-  try {
-    const video = videoRef.current
-    if (video.readyState !== 4) return // Video not ready
+      // Clear old drawings
+      const context = canvas.getContext('2d')
+      context.clearRect(0, 0, canvas.width, canvas.height)
 
-    // ✅ Detect faces
-    const detections = await faceapi
-      .detectAllFaces(video, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.6 }))
-      .withFaceLandmarks()
-      .withFaceDescriptors()
+      // ✅ Draw bounding boxes + landmarks
+      faceapi.draw.drawDetections(canvas, resizedDetections)
+      faceapi.draw.drawFaceLandmarks(canvas, resizedDetections)
 
-    const currentFaceCount = detections.length
-    setLastFaceCount(currentFaceCount)
-
-    // Create or update canvas overlay
-    let canvas = canvasRef.current
-    if (!canvas) {
-      canvas = faceapi.createCanvasFromMedia(video)
-      canvas.style.position = 'absolute'
-      canvas.style.top = '0'
-      canvas.style.left = '0'
-      canvas.style.width = video.width + 'px'
-      canvas.style.height = video.height + 'px'
-      video.parentNode.appendChild(canvas)
-      canvasRef.current = canvas
-    }
-    const dims = { width: video.videoWidth, height: video.videoHeight }
-    faceapi.matchDimensions(canvas, dims)
-    const resizedDetections = faceapi.resizeResults(detections, dims)
-
-    // Clear old drawings
-    const context = canvas.getContext('2d')
-    context.clearRect(0, 0, canvas.width, canvas.height)
-
-    // ✅ Draw bounding boxes + landmarks
-    faceapi.draw.drawDetections(canvas, resizedDetections)
-    faceapi.draw.drawFaceLandmarks(canvas, resizedDetections)
-
-    // --- Check for violations ---
-    const now = Date.now()
-    if (currentFaceCount === 0) {
-      if (noFaceStartTime === null) {
-        setNoFaceStartTime(now)
-      } else if (now - noFaceStartTime > 3000) {
+      // --- Check for violations ---
+      const now = Date.now()
+      if (currentFaceCount === 0) {
+        if (noFaceStartTime === null) {
+          setNoFaceStartTime(now)
+        } else if (now - noFaceStartTime > 3000) {
+          handleViolation(
+            'faceDetection',
+            'No face detected - please ensure your face is clearly visible in the camera'
+          )
+          setNoFaceStartTime(null)
+        }
+      } else if (currentFaceCount > 1) {
         handleViolation(
           'faceDetection',
-          'No face detected - please ensure your face is clearly visible in the camera'
+          `Multiple faces detected (${currentFaceCount}) - only the exam taker should be visible`
         )
         setNoFaceStartTime(null)
-      }
-    } else if (currentFaceCount > 1) {
-      handleViolation(
-        'faceDetection',
-        `Multiple faces detected (${currentFaceCount}) - only the exam taker should be visible`
-      )
-      setNoFaceStartTime(null)
-    } else {
-      setNoFaceStartTime(null)
-    }
-  } catch (error) {
-    console.error('Face detection error:', error)
-  }
-}, [
-  faceDetectionLoaded,
-  isMonitoringPaused,
-  handleViolation,
-  noFaceStartTime
-])
-
-  useEffect(() => {
-  if (!isActive) return;
-
-  const initializeCamera = async () => {
-    try {
-      // Pause monitoring while camera is setting up
-      setIsMonitoringPaused(true);
-
-      // 🔹 Stop any existing streams before opening a new one
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: "user",
-        },
-      });
-
-      if (videoRef.current && stream) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-
-        // Play video safely
-        await videoRef.current.play().catch(err => {
-          console.warn("⚠️ Video play interrupted:", err);
-        });
-
-        setCameraActive(true);
-
-        // Wait for video metadata (dimensions) before detection
-        videoRef.current.onloadedmetadata = () => {
-          if (faceDetectionLoaded && !faceCheckIntervalRef.current) {
-            faceCheckIntervalRef.current = setInterval(detectFaces, 2000); // every 2 sec
-          }
-        };
-
-        // Mark setup complete
-        setTimeout(() => {
-          setIsMonitoringPaused(false);
-          initialStateRef.current.setupComplete = true;
-          console.log("✅ AntiCheat monitoring setup complete");
-        }, 2000);
+      } else {
+        setNoFaceStartTime(null)
       }
     } catch (error) {
-      console.error("❌ Camera access denied:", error);
-      setCameraActive(false);
+      console.error('Face detection error:', error)
+    }
+  }, [
+    faceDetectionLoaded,
+    isMonitoringPaused,
+    handleViolation,
+    noFaceStartTime
+  ])
 
-      if (error.name === "NotAllowedError") {
+  useEffect(() => {
+    if (!isActive) return
+
+    const initializeCamera = async () => {
+      try {
+        // Pause monitoring while camera is setting up
+        setIsMonitoringPaused(true)
+
+        // 🔹 Stop any existing streams before opening a new one
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop())
+          streamRef.current = null
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user'
+          }
+        })
+
+        if (videoRef.current && stream) {
+          videoRef.current.srcObject = stream
+          streamRef.current = stream
+
+          // Play video safely
+          await videoRef.current.play().catch(err => {
+            console.warn('⚠️ Video play interrupted:', err)
+          })
+
+          setCameraActive(true)
+
+          // Wait for video metadata (dimensions) before detection
+          videoRef.current.onloadedmetadata = () => {
+            if (faceDetectionLoaded && !faceCheckIntervalRef.current) {
+              faceCheckIntervalRef.current = setInterval(detectFaces, 2000) // every 2 sec
+            }
+          }
+
+          // Mark setup complete
+          setTimeout(() => {
+            setIsMonitoringPaused(false)
+            initialStateRef.current.setupComplete = true
+            console.log('✅ AntiCheat monitoring setup complete')
+          }, 2000)
+        }
+      } catch (error) {
+        console.error('❌ Camera access denied:', error)
+        setCameraActive(false)
+
+        if (error.name === 'NotAllowedError') {
+          setTimeout(() => {
+            handleViolation(
+              'faceDetection',
+              'Camera access denied - required for exam monitoring'
+            )
+          }, 3000)
+        }
+
+        // Complete setup even if no camera
         setTimeout(() => {
-          handleViolation(
-            "faceDetection",
-            "Camera access denied - required for exam monitoring"
-          );
-        }, 3000);
+          setIsMonitoringPaused(false)
+          initialStateRef.current.setupComplete = true
+        }, 1000)
       }
-
-      // Complete setup even if no camera
-      setTimeout(() => {
-        setIsMonitoringPaused(false);
-        initialStateRef.current.setupComplete = true;
-      }, 1000);
     }
-  };
 
-  initializeCamera();
+    initializeCamera()
 
-  return () => {
-    // 🔹 Cleanup on unmount
-    if (faceCheckIntervalRef.current) {
-      clearInterval(faceCheckIntervalRef.current);
-      faceCheckIntervalRef.current = null;
+    return () => {
+      // 🔹 Cleanup on unmount
+      if (faceCheckIntervalRef.current) {
+        clearInterval(faceCheckIntervalRef.current)
+        faceCheckIntervalRef.current = null
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+        streamRef.current = null
+      }
+      setCameraActive(false)
     }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    setCameraActive(false);
-  };
-}, [isActive, faceDetectionLoaded]);
+  }, [isActive, faceDetectionLoaded])
 
   // Start face detection when models are loaded
   useEffect(() => {
@@ -479,7 +479,7 @@ const AntiCheatMonitor = ({ onViolation, isActive }) => {
       // Block F12 and dev tools
       if (key === 'F12' || keyCode === 123) {
         e.preventDefault()
-        handleViolation('copyPaste', 'Developer tools access blocked')
+        handleViolation('Developer Tools blocked', 'Developer tools access blocked')
         return
       }
 
@@ -489,7 +489,7 @@ const AntiCheatMonitor = ({ onViolation, isActive }) => {
         ['i', 'j', 'c'].includes(key?.toLowerCase())
       ) {
         e.preventDefault()
-        handleViolation('copyPaste', 'Developer tools shortcut blocked')
+        handleViolation('Developer Tools blocked', 'Developer tools shortcut blocked')
         return
       }
 
@@ -500,7 +500,7 @@ const AntiCheatMonitor = ({ onViolation, isActive }) => {
         keyCode === 116
       ) {
         e.preventDefault()
-        handleViolation('copyPaste', 'Page refresh blocked during exam')
+        handleViolation('Page Refresh ', 'Page refresh blocked during exam')
         return
       }
     }
