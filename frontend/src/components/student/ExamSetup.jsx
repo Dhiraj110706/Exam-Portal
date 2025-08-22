@@ -1,4 +1,3 @@
-// src/components/student/ExamSetup.jsx
 import React from 'react'
 import { Shield, Camera, Monitor, AlertTriangle, Clock, BookOpen } from 'lucide-react'
 import Button from '@components/common/Button'

@@ -1,4 +1,3 @@
-// frontend/src/components/common/ErrorBoundary.jsx
 import React from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 

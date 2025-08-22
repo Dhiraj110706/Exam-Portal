@@ -111,34 +111,6 @@ def get_questions(request):
     serializer = QuestionSerializer(questions, many=True)
     return Response(serializer.data)
 
-# @api_view(['POST'])
-# @permission_classes([permissions.IsAuthenticated])
-# def create_exam(request):
-#     if request.user.role != 'ADMIN':
-#         return Response({'error': 'Admin access required'}, status=403)
-    
-#     data = request.data.copy()
-#     data['created_by'] = request.user.id
-    
-#     serializer = ExamSerializer(data=data)
-#     if serializer.is_valid():
-#         exam = serializer.save()
-        
-#         # Add questions to exam
-#         question_ids = request.data.get('question_ids', [])
-#         if question_ids:
-#             questions = Question.objects.filter(id__in=question_ids)
-#             exam.questions.set(questions)
-        
-#         return Response({
-#             'success': True,
-#             'exam_id': exam.id,
-#             'message': 'Exam created successfully'
-#         })
-    
-#     return Response({'error': serializer.errors}, status=400)
-
-# backend/exam_system/views.py - Alternative approach with serializer
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
@@ -266,25 +238,7 @@ def submit_exam(request, exam_id):
     except Exam.DoesNotExist:
         return Response({'error': 'Exam not found'}, status=404)
 
-# @api_view(['POST'])
-# @permission_classes([permissions.IsAuthenticated])
-# def create_user(request):
-#     if request.user.role != 'ADMIN':
-#         return Response({'error': 'Admin access required'}, status=403)
-    
-#     data = request.data.copy()
-#     data['created_by'] = request.user
-    
-#     serializer = UserSerializer(data=data)
-#     if serializer.is_valid():
-#         user = serializer.save()
-#         return Response({
-#             'success': True,
-#             'user_id': user.id,
-#             'message': f'{user.role} created successfully'
-#         })
-    
-#     return Response({'error': serializer.errors}, status=400)
+
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def create_user(request):
