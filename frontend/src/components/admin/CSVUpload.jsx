@@ -123,7 +123,7 @@ const CSVUpload = ({ onUpload }) => {
           <div>
             <h4 className="text-sm font-medium text-blue-900 mb-2">CSV Format Requirements</h4>
             <div className="text-sm text-blue-800 space-y-1">
-              <p><strong>Required columns:</strong> question, a, b, c, d, correct</p>
+              <p><strong>Required columns:</strong> question, a, b, c, d, correctp</p>
               <p><strong>Example row:</strong></p>
               <code className="block bg-blue-100 p-2 rounded text-xs mt-1">
                 What is 2+2?,3,4,5,6,B
