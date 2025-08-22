@@ -24,7 +24,8 @@ const AntiCheatMonitor = ({ onViolation, isActive }) => {
   // Face detection state
   const [faceDetectionLoaded, setFaceDetectionLoaded] = useState(false)
   const [lastFaceCount, setLastFaceCount] = useState(0)
-  const [noFaceStartTime, setNoFaceStartTime] = useState(null)
+  // const [noFaceStartTime, setNoFaceStartTime] = useState(null)
+  const noFaceStartTimeRef = useRef(null)
 
   // Violation cooldowns to prevent double counting
   const violationCooldowns = useRef({
@@ -168,23 +169,23 @@ const AntiCheatMonitor = ({ onViolation, isActive }) => {
       // --- Check for violations ---
       const now = Date.now()
       if (currentFaceCount === 0) {
-        if (noFaceStartTime === null) {
-          setNoFaceStartTime(now)
-        } else if (now - noFaceStartTime > 3000) {
+        if (noFaceStartTimeRef.current === null) {
+          noFaceStartTimeRef.current = now
+        } else if (now - noFaceStartTimeRef.current > 3000) {
           handleViolation(
             'faceDetection',
             'No face detected - please ensure your face is clearly visible in the camera'
           )
-          setNoFaceStartTime(null)
+          noFaceStartTimeRef.current = null
         }
       } else if (currentFaceCount > 1) {
         handleViolation(
           'faceDetection',
           `Multiple faces detected (${currentFaceCount}) - only the exam taker should be visible`
         )
-        setNoFaceStartTime(null)
+        noFaceStartTimeRef.current = null
       } else {
-        setNoFaceStartTime(null)
+        noFaceStartTimeRef.current = null
       }
     } catch (error) {
       console.error('Face detection error:', error)
@@ -193,7 +194,7 @@ const AntiCheatMonitor = ({ onViolation, isActive }) => {
     faceDetectionLoaded,
     isMonitoringPaused,
     handleViolation,
-    noFaceStartTime
+    noFaceStartTimeRef
   ])
 
   useEffect(() => {
@@ -470,7 +471,7 @@ const AntiCheatMonitor = ({ onViolation, isActive }) => {
       if (e.altKey && key === 'Tab') {
         e.preventDefault()
         handleViolation(
-          'copyPaste',
+          'Change  Tab',
           VIOLATION_MESSAGES[VIOLATION_TYPES.KEYBOARD_SHORTCUT]
         )
         return
@@ -479,7 +480,10 @@ const AntiCheatMonitor = ({ onViolation, isActive }) => {
       // Block F12 and dev tools
       if (key === 'F12' || keyCode === 123) {
         e.preventDefault()
-        handleViolation('Developer Tools blocked', 'Developer tools access blocked')
+        handleViolation(
+          'Developer Tools blocked',
+          'Developer tools access blocked'
+        )
         return
       }
 
@@ -489,7 +493,10 @@ const AntiCheatMonitor = ({ onViolation, isActive }) => {
         ['i', 'j', 'c'].includes(key?.toLowerCase())
       ) {
         e.preventDefault()
-        handleViolation('Developer Tools blocked', 'Developer tools shortcut blocked')
+        handleViolation(
+          'Developer Tools blocked',
+          'Developer tools shortcut blocked'
+        )
         return
       }
 

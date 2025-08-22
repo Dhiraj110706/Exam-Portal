@@ -742,11 +742,11 @@ def delete_user(request, user_id):
         # Check if user has any exam responses
         has_responses = StudentResponse.objects.filter(student=user).exists()
         
-        if has_responses:
-            # Instead of deleting, we could mark as inactive or return an error
-            return Response({
-                'error': 'Cannot delete user with exam responses. Consider deactivating instead.'
-            }, status=400)
+        # if has_responses:
+        #     # Instead of deleting, we could mark as inactive or return an error
+        #     return Response({
+        #         'error': 'Cannot delete user with exam responses. Consider deactivating instead.'
+        #     }, status=400)
         
         # Store user info for response
         username = user.username

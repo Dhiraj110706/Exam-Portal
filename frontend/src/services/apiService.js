@@ -440,17 +440,32 @@ export const apiService = {
     }
   },
 
-  async deleteUser(userId) {
-    try {
-      console.log('API: Deleting user:', userId)
-      const response = await apiClient.delete(`/users/${userId}/`)
-      console.log('API: User deleted')
-      return response.data
-    } catch (error) {
-      console.error('API: Delete user error:', error)
-      throw error
-    }
-  },
+  // async deleteUser(userId) {
+  //   try {
+  //     console.log('API: Deleting user:', userId)
+  //     const response = await apiClient.delete(`/users/${userId}/`)
+  //     console.log('API: User deleted')
+  //     return response.data
+  //   } catch (error) {
+  //     console.error('API: Delete user error:', error)
+  //     throw error
+  //   }
+  // }
+  // Update this method in your frontend/src/services/apiService.js
+
+async deleteUser(userId) {
+  try {
+    console.log('API: Deleting user:', userId)
+    // Fixed: Changed from /users/${userId}/ to /users/${userId}/delete/
+    const response = await apiClient.delete(`/users/${userId}/delete/`)
+    console.log('API: User deleted')
+    return response.data
+  } catch (error) {
+    console.error('API: Delete user error:', error)
+    throw error
+  }
+}
+  ,
 
   async bulkImportStudents(file) {
     try {

@@ -1,77 +1,6 @@
 import { useState, useEffect } from 'react'
+import { apiService } from '../services/apiService'
 import { handleApiError } from '../utils/helpers'
-
-// API utility function
-const apiRequest = async (endpoint, options = {}) => {
-  const {
-    method = 'GET',
-    data = null,
-    headers = {},
-    ...otherOptions
-  } = options
-
-  // Get CSRF token from cookies
-  const getCSRFToken = () => {
-    const name = 'csrftoken'
-    let cookieValue = null
-    if (document.cookie && document.cookie !== '') {
-      const cookies = document.cookie.split(';')
-      for (let i = 0; i < cookies.length; i++) {
-        const cookie = cookies[i].trim()
-        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-          cookieValue = decodeURIComponent(cookie.substring(name.length + 1))
-          break
-        }
-      }
-    }
-    return cookieValue
-  }
-
-  // Prepare request configuration
-  const config = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': getCSRFToken(),
-      ...headers
-    },
-    credentials: 'include',
-    ...otherOptions
-  }
-
-  // Add body data if provided
-  if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
-    config.body = JSON.stringify(data)
-  }
-
-  try {
-    const response = await fetch(`/api${endpoint}`, config)
-    
-    // Handle different response types
-    let responseData
-    const contentType = response.headers.get('content-type')
-    
-    if (contentType && contentType.includes('application/json')) {
-      responseData = await response.json()
-    } else {
-      responseData = await response.text()
-    }
-
-    if (!response.ok) {
-      // Handle error response
-      const errorMessage = responseData?.error || responseData?.message || `Request failed with status ${response.status}`
-      throw new Error(errorMessage)
-    }
-
-    return responseData
-  } catch (error) {
-    // Handle network errors
-    if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('Network error. Please check your connection.')
-    }
-    throw error
-  }
-}
 
 export const useUsers = () => {
   const [users, setUsers] = useState([])
@@ -83,7 +12,7 @@ export const useUsers = () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await apiRequest('/users/')
+      const response = await apiService.getUsers()
       setUsers(response)
     } catch (err) {
       const errorMessage = handleApiError ? handleApiError(err) : (err.message || 'Failed to fetch users')
@@ -99,17 +28,14 @@ export const useUsers = () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await apiRequest('/create-user/', {
-        method: 'POST',
-        data: userData
-      })
+      const response = await apiService.createUser(userData)
       
       // Refresh users list
       await fetchUsers()
       
       return response
     } catch (err) {
-      const errorMessage = handleApiError ? handleApiError(err) : (err.message || 'Failed to create user')
+      const errorMessage = handleApiError ? handleApiError(err) : (err.response?.data?.error || err.message || 'Failed to create user')
       setError(errorMessage)
       throw new Error(errorMessage)
     } finally {
@@ -122,10 +48,7 @@ export const useUsers = () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await apiRequest(`/users/${userId}/`, {
-        method: 'PUT',
-        data: userData
-      })
+      const response = await apiService.updateUser(userId, userData)
       
       // Update the user in the local state
       setUsers(prevUsers => 
@@ -136,7 +59,7 @@ export const useUsers = () => {
       
       return response
     } catch (err) {
-      const errorMessage = handleApiError ? handleApiError(err) : (err.message || 'Failed to update user')
+      const errorMessage = handleApiError ? handleApiError(err) : (err.response?.data?.error || err.message || 'Failed to update user')
       setError(errorMessage)
       throw new Error(errorMessage)
     } finally {
@@ -149,16 +72,14 @@ export const useUsers = () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await apiRequest(`/users/${userId}/delete/`, {
-        method: 'DELETE'
-      })
+      const response = await apiService.deleteUser(userId)
       
       // Remove the user from the local state
       setUsers(prevUsers => prevUsers.filter(user => user.id !== userId))
       
       return response
     } catch (err) {
-      const errorMessage = handleApiError ? handleApiError(err) : (err.message || 'Failed to delete user')
+      const errorMessage = handleApiError ? handleApiError(err) : (err.response?.data?.error || err.message || 'Failed to delete user')
       setError(errorMessage)
       throw new Error(errorMessage)
     } finally {
@@ -171,47 +92,14 @@ export const useUsers = () => {
     setLoading(true)
     setError(null)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      
-      // Get CSRF token
-      const getCSRFToken = () => {
-        const name = 'csrftoken'
-        let cookieValue = null
-        if (document.cookie && document.cookie !== '') {
-          const cookies = document.cookie.split(';')
-          for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim()
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-              cookieValue = decodeURIComponent(cookie.substring(name.length + 1))
-              break
-            }
-          }
-        }
-        return cookieValue
-      }
-      
-      const response = await fetch('/api/bulk-import-students/', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-        headers: {
-          'X-CSRFToken': getCSRFToken()
-        }
-      })
-      
-      const data = await response.json()
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Import failed')
-      }
+      const response = await apiService.bulkImportStudents(file)
       
       // Refresh users list
       await fetchUsers()
       
-      return data
+      return response
     } catch (err) {
-      const errorMessage = handleApiError ? handleApiError(err) : (err.message || 'Failed to import students')
+      const errorMessage = handleApiError ? handleApiError(err) : (err.response?.data?.error || err.message || 'Failed to import students')
       setError(errorMessage)
       throw new Error(errorMessage)
     } finally {
