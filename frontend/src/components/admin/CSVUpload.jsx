@@ -101,6 +101,7 @@ const CSVUpload = ({ onUpload }) => {
             </div>
           </div>
           <Button
+            variant = 'success'
             onClick={handleUpload}
             loading={loading}
             size="small"
