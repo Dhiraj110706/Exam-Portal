@@ -26,7 +26,7 @@ SECRET_KEY = config('SECRET_KEY','django-insecure-g1(7=3ck$nd!p1(4xz+19#+9w4x*)@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG',default =True,cast = bool)
 
-ALLOWED_HOSTS = ['localhost','127.0.0.1','0.0.0.0']
+ALLOWED_HOSTS = ['localhost','127.0.0.1','0.0.0.0' , 'https://exam-portal-dhiraj110706s-projects.vercel.app/' ,'https://exam-portal-iota.vercel.app/']
 
 
 # Application definition
