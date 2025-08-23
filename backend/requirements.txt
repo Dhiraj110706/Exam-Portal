@@ -1,5 +1,5 @@
-Django
-djangorestframework ==3.14.0
-django-cors-headers == 4.3.1
-pillow == 10.0.1
-python-decouple 
+Django==5.0.6
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+pillow>=10.3.0
+python-decouple==3.8
