@@ -26,7 +26,7 @@ SECRET_KEY = config('SECRET_KEY','django-insecure-g1(7=3ck$nd!p1(4xz+19#+9w4x*)@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG',default =True,cast = bool)
 
-ALLOWED_HOSTS = ['localhost','127.0.0.1','0.0.0.0' , 'https://exam-portal-dhiraj110706s-projects.vercel.app/' ,'https://exam-portal-iota.vercel.app/']
+ALLOWED_HOSTS = ['localhost','127.0.0.1' , 'exam-portal-dhiraj110706s-projects.vercel.app/' ,'exam-portal-iota.vercel.app/']
 
 
 # Application definition
@@ -143,11 +143,21 @@ REST_FRAMEWORK = {
 }
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    "https://exam-portal-dhiraj110706s-projects.vercel.app",
+    "https://exam-portal-iota.vercel.app"
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://exam-portal-dhiraj110706s-projects.vercel.app",
+    "https://exam-portal-iota.vercel.app"
+]
+
 CORS_ALLOW_CREDENTIALS = True
 
 # CSRF settings
-CSRF_TRUSTED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000']
+# CSRF_TRUSTED_ORIGINS = ['http://localhost:3000', 'http://127.0.0.1:3000']
 CSRF_COOKIE_SECURE = False  # Set to True in production with HTTPS
 CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access to CSRF token
 CSRF_COOKIE_SAMESITE = 'Lax'
